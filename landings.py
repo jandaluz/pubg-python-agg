@@ -22,12 +22,11 @@ df = pd.DataFrame(columns=COLUMNS)
 quant = 100
 
 def main(date=None):
-    #print('try api samples')
     ret = api.samples()
     
-    #print(ret)
+    #query string for samples call
     params = {'filter[createdAt-start]': f"{date}T12:00:00Z"} if date is not None else None
-    #print(params)
+
     samples = ret.get(params=params)
     i = 0
     thread_pool = []   
@@ -37,6 +36,7 @@ def main(date=None):
         print(quant)
         sample_slice = samples.matches[i:i+quant]
         print(len(sample_slice))
+        #grab a slice
         t = threading.Thread(target=batch_get_tels, args=(sample_slice, df))
         thread_pool.append(t)
         t.start()
@@ -53,8 +53,10 @@ def main(date=None):
     print(df.groupby('map_name').match_id.nunique())
     
 def get_the_coordinates(match_telemetry):
+    #filter the envets for parachute landings
     filtered = list(filter(lambda x: isinstance(x, LogParachuteLanding), match_telemetry.events))
     #return list(map(lambda c: {'player': c.character.account_id, "x":c.character.location.x, "y":c.character.location.y}, filtered))
+    #prepare the return list with coordinates, zone, and player info
     return list(map(lambda c: {"x":c.character.location.x, "y":c.character.location.y, 'zone':c.character.zone, 'player': c.character.name}, filtered))
     
 def batch_get_tels(matches, root_df):
@@ -65,11 +67,11 @@ def batch_get_tels(matches, root_df):
             print(f'match: {match_id}')
             match_info = api.matches().get(match_id)
             telemetry_url = match_info.assets[0].url
+            #prepare the coordinates for telemetry
             map_coords = get_the_coordinates(api.telemetry(telemetry_url))
             print(f"{{id:{match_info.id}, map_name:{match_info.map_name}, 'game_mode': {match_info.game_mode} }}")
             print(len(map_coords))
             for coords in map_coords:
-            #telemetry = {'match_id': match_info.id, 'map_name': match_info.map_name, 'game_mode': match_info.game_mode, 'telemetry_url': match_info.assets[0].url, "landings": map_coords}
                 logging.info(coords)
                 if len(coords['zone']) >= 1:
                     telemetry = {'match_id': match_info.id, 'match_start':match_info.created_at, 'map_name': match_info.map_name, 'game_mode': match_info.game_mode, 'telemetry_url': match_info.assets[0].url, "landing_x": coords['x'], "landing_y": coords['y'], "landing_zone": coords['zone'][0], "player": coords["player"]}            
