@@ -53,6 +53,15 @@ def main(date=None):
     print(df.groupby('map_name').match_id.nunique())
     
 def get_the_coordinates(match_telemetry):
+    '''create a data dictionary for a player's landing
+    
+    Arguments:
+        match_telemetry {list} -- list of a match's telemetry events
+    
+    Returns:
+        list(dict) -- list of dictionaries containing player landing information
+    '''
+
     #filter the envets for parachute landings
     filtered = list(filter(lambda x: isinstance(x, LogParachuteLanding), match_telemetry.events))
     #return list(map(lambda c: {'player': c.character.account_id, "x":c.character.location.x, "y":c.character.location.y}, filtered))
@@ -60,10 +69,17 @@ def get_the_coordinates(match_telemetry):
     return list(map(lambda c: {"x":c.character.location.x, "y":c.character.location.y, 'zone':c.character.zone, 'player': c.character.name}, filtered))
     
 def batch_get_tels(matches, root_df):
+    '''telemetry to dataframe column logic to run in thread
+    
+    Arguments:
+        matches {list} -- list of match information
+        root_df {pandas.DataFrame} -- dataframe to append events to
+    '''
+
     global df
     print('inside batch_get_tels')
-    try:
-        for match_id in matches:
+    for match_id in matches:
+        try:
             print(f'match: {match_id}')
             match_info = api.matches().get(match_id)
             telemetry_url = match_info.assets[0].url
@@ -81,9 +97,9 @@ def batch_get_tels(matches, root_df):
                 logging.info(f"telemetry: {telemetry}")                
                 _df = pd.DataFrame(telemetry, columns=COLUMNS, index=['match_id'])
                 df = df.append(_df)
-    except Exception as e:
-        print("an exception occurred in thread", e)
-        logger.exception("an exception occurred in thread", exc_info=True)
+        except Exception as e:
+            print("an exception occurred in thread", e)
+            logger.exception("an exception occurred in thread", exc_info=True)
 
 if __name__ == "__main__":
     formatted_date = None
