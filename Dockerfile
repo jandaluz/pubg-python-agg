@@ -1,13 +1,8 @@
-FROM python:slim
+FROM jandaluz/pubg-agg:latest
 
 WORKDIR /usr/src/app
 
-RUN apt update
-RUN apt install git -y
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --no-cache-dir google-cloud-storage==1.15.0 google-cloud-pubsub==0.40.0
 COPY . .
 
-CMD [ "python", "landings.py"]
+CMD [ "python", "main_gcp.py"]
