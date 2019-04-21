@@ -19,7 +19,7 @@ logger = logging.getLogger('pubg-agg')
 logger.setLevel(logging.DEBUG)
 api_key = os.environ.get('API_KEY') 
 api = PUBG(api_key=api_key, shard=Shard.PC_NA)
-#COLUMNS = ['match_id', 'map_name', 'game_mode', 'telemetry_url', "landing_x", "landing_y", "landing_zone", "player", "match_start"]
+# COLUMNS = ['match_id', 'map_name', 'game_mode', 'telemetry_url', "landing_x", "landing_y", "landing_zone", "player", "match_start"]
 df = pd.DataFrame(columns=COMMON_COLUMNS + ITEM_COLUMNS + KILL_KNOCK_COLUMNS)
 quant = 100
 
@@ -47,6 +47,7 @@ def main(date=None):
         i += quant
     for t in thread_pool:
         t.join()
+        thread_pool.remove(t)
 
     #tels_to_dataframe(samples.matches)
     print(df.shape)
@@ -63,6 +64,10 @@ def main(date=None):
     end_time = datetime.datetime.now()
     print(f"end time: {end_time}")
     print(f"run time: {(end_time - start_time).seconds}")
+    return {
+        "p": f"data/parquet/telemetry_{date}.parquet",
+        "c": f"data/csv/landings_{date}.csv"
+    }
     
 def get_the_coordinates(match_telemetry):
     '''create a data dictionary for a player's landing
@@ -142,19 +147,27 @@ def tels_to_dataframe(matches):
             if(match_info.map_name == "Range_Main"):
                 continue
             telemetry_url = match_info.assets[0].url
-            #prepare the coordinates for telemetry
+            # prepare the coordinates for telemetry
             match_telemetry = api.telemetry(telemetry_url)
             common_match_info = common_match_info_dict(match_info)
             map_coords = filters.filter_parachutes(match_telemetry, match_info)
-            #item_pickups = filters.filter_item_pickup(match_telemetry, match_info, 'Weapon')
-            #kills = filters.fitler_kill(match_telemetry, match_info)
+            item_pickups = filters.filter_item_pickup(match_telemetry, match_info, 'Weapon')
+            kills = filters.fitler_kill(match_telemetry, match_info)
             print(f"{{id:{match_info.id}, map_name:{match_info.map_name}, 'game_mode': {match_info.game_mode} }}")
             print(len(map_coords))
 
             #grab a slice
             #chutes_thread = threading.Thread(target=batch_get_tels, args=(sample_slice, df))
-            chutes_to_dataframe(map_coords, common_match_info)           
+            chutes_thread = threading.Thread(target=chutes_to_dataframe, args=(map_coords, common_match_info))
+            chutes_thread.start()
+            items_thread = threading.Thread(target=items_to_dataframe, args=(item_pickups, common_match_info))
+            items_thread.start()
+            kills_thread = threading.Thread(target=kills_to_dataframe, args=(kills, common_match_info))
+            kills_thread.start()
 
+            chutes_thread.join()
+            items_thread.join()
+            kills_thread.join()
 
         except Exception as e:
             print("an exception occurred in thread", e)
