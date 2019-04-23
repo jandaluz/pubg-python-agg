@@ -151,7 +151,7 @@ def tels_to_dataframe(matches):
             match_telemetry = api.telemetry(telemetry_url)
             common_match_info = common_match_info_dict(match_info)
             map_coords = filters.filter_parachutes(match_telemetry, match_info)
-            item_pickups = filters.filter_item_pickup(match_telemetry, match_info, 'Weapon')
+            #item_pickups = filters.filter_item_pickup(match_telemetry, match_info, 'Weapon')
             kills = filters.fitler_kill(match_telemetry, match_info)
             print(f"{{id:{match_info.id}, map_name:{match_info.map_name}, 'game_mode': {match_info.game_mode} }}")
             print(len(map_coords))
@@ -160,13 +160,13 @@ def tels_to_dataframe(matches):
             #chutes_thread = threading.Thread(target=batch_get_tels, args=(sample_slice, df))
             chutes_thread = threading.Thread(target=chutes_to_dataframe, args=(map_coords, common_match_info))
             chutes_thread.start()
-            items_thread = threading.Thread(target=items_to_dataframe, args=(item_pickups, common_match_info))
-            items_thread.start()
+            #items_thread = threading.Thread(target=items_to_dataframe, args=(item_pickups, common_match_info))
+            #items_thread.start()
             kills_thread = threading.Thread(target=kills_to_dataframe, args=(kills, common_match_info))
             kills_thread.start()
 
             chutes_thread.join()
-            items_thread.join()
+            #items_thread.join()
             kills_thread.join()
 
         except Exception as e:
