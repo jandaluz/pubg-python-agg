@@ -10,6 +10,7 @@ from pubg_python import PUBG, Shard
 from pubg_python.domain.telemetry.events import LogParachuteLanding
 import seaborn as sns
 import threading
+from multiprocessing import Process, Pipe, Queue
 import math
 import logging
 import telemetry_filters as filters
@@ -33,22 +34,49 @@ def main(date=None):
 
     samples = ret.get(params=params)
     i = 0
-    thread_pool = []   
     print(f"sample matches returned: {len(samples.matches)}")
     quant = math.ceil(len(samples.matches)/4)
+    #quant = 25
     print(quant)
-    while i < len(samples.matches):
-        sample_slice = samples.matches[i:i+quant]
-        print(len(sample_slice))
-        #grab a slice
-        t = threading.Thread(target=tels_to_dataframe, args=[sample_slice])
-        thread_pool.append(t)
-        t.start()
-        i += quant
-    for t in thread_pool:
-        t.join()
-        thread_pool.remove(t)
+    
+    q = Queue()
+    p_1_parent_conn, p_1_child_conn = Pipe()
+    p_1 = Process(target=tels_to_dataframe, args=(p_1_child_conn, samples.matches[0:quant]))
+    p_2_parent_conn, p_2_child_conn = Pipe()
+    p_2 = Process(target=tels_to_dataframe, args=(p_2_child_conn, samples.matches[quant:quant*2]))
+    p_3_parent_conn, p_3_child_conn = Pipe()
+    p_3 = Process(target=tels_to_dataframe, args=(p_3_child_conn, samples.matches[quant*2:quant*3]))
+    p_4_parent_conn, p_4_child_conn = Pipe()
+    p_4 = Process(target=tels_to_dataframe, args=(p_4_child_conn, samples.matches[quant*3:quant*4]))
 
+    p_1.start()
+    p_2.start()
+    p_3.start()
+    p_4.start()
+    while (not p_1_parent_conn.poll(3) or not p_2_parent_conn.poll(3)
+     or not p_3_parent_conn.poll(3) or not p_4_parent_conn.poll(3)):
+        print('data not present in all pipes')
+        print(f"p1: {p_1_parent_conn.poll(1)}")
+        print(f"p2: {p_2_parent_conn.poll(1)}")
+        print(f"p3: {p_3_parent_conn.poll(1)}")
+        print(f"p4: {p_4_parent_conn.poll(1)}")
+    df_1 = p_1_parent_conn.recv()
+    print("got em", df_1)
+    df_2 = p_2_parent_conn.recv()
+    print("got em 2", df_2)
+    df_3 = p_3_parent_conn.recv()
+    print("got em 3", df_3)
+    df_4 = p_4_parent_conn.recv()
+    print("got em 4", df_4)
+
+    p_1.join()
+    p_2.join()
+    p_3.join()
+    p_4.join()
+
+    df = df_1.append([df_2, df_3, df_4])
+
+    print(df.shape)
     #tels_to_dataframe(samples.matches)
     print(df.shape)
     print('try to write parquet')
@@ -127,18 +155,20 @@ def kills_to_dataframe(kills_list, common_match_info):
             print(kill)     
     print('exit kills to dataframe')
 
-def tels_to_dataframe(matches):
+def tels_to_dataframe(conn, matches):
     '''telemetry to dataframe column logic to run in thread
     
     Arguments:
         matches {list} -- list of match information
         root_df {pandas.DataFrame} -- dataframe to append events to
     '''
+    global df
     start_time = datetime.datetime.now()
     print(f"start: {start_time}")
     print('inside tels_to_dataframe')
     thread_pool = []
-    for match_id in matches:
+    for idx, match_id in enumerate(matches):
+        print(f"match {idx+1} of {len(matches)}")
         try:
             print(f'match: {match_id}')
             start_time = datetime.datetime.now()
@@ -168,7 +198,6 @@ def tels_to_dataframe(matches):
             chutes_thread.join()
             #items_thread.join()
             kills_thread.join()
-
         except Exception as e:
             print("an exception occurred in thread", e)
             logger.exception("an exception occurred in thread", exc_info=True)
@@ -178,8 +207,10 @@ def tels_to_dataframe(matches):
             thread_pool.remove(t)
         end_time = datetime.datetime.now()
         print(f"end: {end_time}")
+        print(f"leaving match {idx} of {len(matches)}")
         print(f"time taken: {(end_time - start_time).seconds}")
-
+        print(df.shape)
+    conn.send(df)
 if __name__ == "__main__":
     formatted_date = None
     if len(sys.argv) > 1:
