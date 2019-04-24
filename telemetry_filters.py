@@ -31,6 +31,7 @@ def filter_parachutes(match_telemetry, match_info):
                                "y":c.character.location.y,
                                "zone":" ".join(c.character.zone) if len(c.character.zone) > 0 else None,
                                "player": c.character.name,
+                               "event": "LAND",
                                **common_match_info_dict(match_info)}, filtered)
     return list(x)
 
@@ -49,6 +50,7 @@ def filter_item_pickup(match_telemetry, match_info, category):
                                'item': c.item.item_id,
                                'category': c.item.category,
                                "time_elapsed": calculate_event_time(start_time, c.timestamp),
+                               "event": "PICKUP",
                                **common_match_info_dict(match_info)},
                                filtered))
 
@@ -70,6 +72,7 @@ def fitler_kill(match_telemetry, match_info):
                 "kill_distance": c.distance,
                 "time_elapsed": calculate_event_time(start_time, c.timestamp),
                 "kill_type": "KILL",
+                "event": "KILL",
                 **common_match_info_dict(match_info)
     },
     filtered_kills))
@@ -88,6 +91,7 @@ def fitler_kill(match_telemetry, match_info):
         "kill_distance": c.distance,
         "time_elapsed": calculate_event_time(start_time, c.timestamp),
         "kill_type": "KNOCK",
+        "event": "KNOCK",
         **common_match_info_dict(match_info)
     },
     filtered_knocks))
@@ -110,6 +114,6 @@ def common_match_info_dict(match_info):
             "game_mode": match_info.game_mode,
             "telemetry_url": match_info.assets[0].url}    
 
-COMMON_COLUMNS = ['match_id', 'map_name', 'game_mode', 'telemetry_url', "match_start", "x", "y", "zone", "player"]
+COMMON_COLUMNS = ['match_id', 'map_name', 'game_mode', 'telemetry_url', "match_start", "x", "y", "zone", "player", "event"]
 ITEM_COLUMNS = ['item', 'category', 'time_elapsed']
 KILL_KNOCK_COLUMNS = ["weapon", "victim_x", "victim_y", "victim_name", "kill_distance", "kill_type"]
