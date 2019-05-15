@@ -45,9 +45,13 @@ def zip_and_upload_csv(dataframe, map_name, bucket):
     map_df = dataframe[dataframe.map_name == map_name]
     if map_df.shape[0] > 0:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            csv_string = map_df.to_csv()
-            gzip_bytes = io.BytesIO(gzip.compress(csv_string.encode('utf-8')))
+            csv_bstring = map_df.to_csv().encode('utf-8')
+            csv_bytes = io.BytesIO(csv_bstring)
             blob = bucket.blob(f"kills/{map_name}.csv")
+            blob.upload_from_file(csv_bytes)
+            
+            gzip_bytes = io.BytesIO(gzip.compress(csv_bstring))
+            blob = bucket.blob(f"kills/compressed/{map_name}.csv")
             blob.content_encoding="gzip"
             blob.upload_from_file(gzip_bytes)
             print("It is written!")  
