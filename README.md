@@ -6,6 +6,13 @@ Python script for aggregating landing information from sample matches
 
 Submission to the Overwolf/PUBG Developer Challenge 2019
 
+## How it works
+
+- Pull sample matches from the PUBG API.
+- Put the landing coordinates for every player in a pandas data frame.
+- Export data frame to a csv
+- csv file is used to make a contour map on the [in game overlay](https://github.com/jandaluz/pubg-heat-react)
+
 ## Libraries Used
 
 - [PUBG Python](https://github.com/ramonsaraiva/pubg-python) - Python wrapper for the PUBG API
